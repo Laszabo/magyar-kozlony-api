@@ -3,6 +3,3 @@ uvicorn
 openai
 requests
 fitz
-tempfile
-os
-BaseModel
