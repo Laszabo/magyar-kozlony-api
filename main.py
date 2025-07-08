@@ -4,7 +4,7 @@ import os
 
 app = FastAPI()
 
-openai.api_key = os.getenv(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)
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @app.get("/")
 def root():
@@ -24,4 +24,3 @@ def ask_gpt():
         return {"gpt_response": response.choices[0].message["content"]}
     except Exception as e:
         return {"error": str(e)}
-
