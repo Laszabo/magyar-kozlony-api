@@ -1,7 +1,27 @@
 from fastapi import FastAPI
+import openai
+import os
 
 app = FastAPI()
 
+openai.api_key = os.getenv(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)
+
 @app.get("/")
-def read_root():
-    return {"message": "Hello from FastAPI on Render!"}
+def root():
+    return {"message": "FastAPI GPT endpoint is up!"}
+
+@app.get("/ask")
+def ask_gpt():
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "user", "content": "Write a one-sentence bedtime story about a unicorn."}
+            ],
+            temperature=0.7,
+            max_tokens=100
+        )
+        return {"gpt_response": response.choices[0].message["content"]}
+    except Exception as e:
+        return {"error": str(e)}
+
