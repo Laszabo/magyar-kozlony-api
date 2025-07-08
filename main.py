@@ -1,58 +1,26 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import requests
+from fastapi import FastAPI, UploadFile, File
+from fastapi.responses import JSONResponse
 import fitz  # PyMuPDF
-import tempfile
-import os
 
 app = FastAPI()
 
-class PdfRequest(BaseModel):
-    pdf_url: str
-
-def download_pdf(url: str) -> str:
-    if "megtekintes" in url:
-        url = url.replace("megtekintes", "letoltes")
-    
-    response = requests.get(url)
-    if response.status_code != 200:
-        raise HTTPException(status_code=400, detail="Could not download PDF.")
-    
-    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".pdf")
-    with os.fdopen(tmp_fd, 'wb') as tmp_file:
-        tmp_file.write(response.content)
-    return tmp_path
-
-def extract_chunks(pdf_path: str, chunk_size: int = 40) -> list:
-    chunks = []
-    with fitz.open(pdf_path) as doc:
-        total_pages = len(doc)
-        for i in range(0, total_pages, chunk_size):
-            chunk_text = ""
-            for j in range(i, min(i + chunk_size, total_pages)):
-                chunk_text += doc[j].get_text()
-            chunk_metadata = f"-- Pages {i+1} to {min(i+chunk_size, total_pages)} --\n"
-            chunks.append(chunk_metadata + chunk_text)
-    return chunks
-
-@app.post("/extract_text")
-async def extract_text(data: PdfRequest):
+@app.post("/analyze")
+async def analyze_pdf(file: UploadFile = File(...)):
     try:
-        pdf_path = download_pdf(data.pdf_url)
-        chunks = extract_chunks(pdf_path)
-        os.remove(pdf_path)
+        contents = await file.read()
+        pdf = fitz.open(stream=contents, filetype="pdf")
+        total_pages = pdf.page_count
+        full_text = ""
 
-        if len(chunks) == 1:
-            return {"pages": "under_40", "text": chunks[0][:3000] + "..."}
-        else:
-            return {
-                "pages": "over_40",
-                "chunk_count": len(chunks),
-                "chunks": [chunk[:3000] + "..." for chunk in chunks]  # Trim for preview
-            }
+        for page_num in range(total_pages):
+            page = pdf.load_page(page_num)
+            full_text += page.get_text()
+            full_text += "\n\n---PAGE BREAK---\n\n"
+
+        return JSONResponse({
+            "page_count": total_pages,
+            "text_snippet": full_text[:2000] + "...",  # preview only
+        })
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/")
-def root():
-    return {"message": "FastAPI GPT endpoint is up!"}
+        return JSONResponse(status_code=500, content={"error": str(e)})
