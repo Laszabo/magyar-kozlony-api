@@ -2,4 +2,4 @@ fastapi
 uvicorn
 openai
 requests
-fitz
+PyMuPDF==1.23.7
