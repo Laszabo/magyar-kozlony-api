@@ -31,6 +31,3 @@ async def analyze_pdf(file: UploadFile = File(...)):
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
-
-print(f"Received: {file.filename}, size: {len(contents)} bytes")
-print(f"First 4 bytes: {contents[:4]}")
