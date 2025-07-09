@@ -1,3 +1,9 @@
+from fastapi import FastAPI, UploadFile, File
+from fastapi.responses import JSONResponse
+import fitz  # PyMuPDF
+
+app = FastAPI()  # ✅ define app first!
+
 @app.post("/analyze")
 async def analyze_pdf(file: UploadFile = File(...)):
     try:
@@ -20,7 +26,7 @@ async def analyze_pdf(file: UploadFile = File(...)):
 
         return JSONResponse({
             "page_count": total_pages,
-            "text_snippet": full_text[:2000] + "..."  # preview
+            "text_snippet": full_text[:2000] + "..."
         })
 
     except Exception as e:
