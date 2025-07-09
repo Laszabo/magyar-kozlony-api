@@ -38,7 +38,7 @@ async def analyze_pdf(file: UploadFile = File(...)):
 
         return JSONResponse({
             "page_count": total_pages,
-            "text_snippet": full_text[:2000] + "..." if len(full_text) > 2000 else full_text
+            "full_text": full_text
         })
 
     except Exception as e:
