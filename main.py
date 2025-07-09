@@ -1,13 +1,14 @@
-from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import JSONResponse
-import fitz  # PyMuPDF
-
-app = FastAPI()
-
 @app.post("/analyze")
 async def analyze_pdf(file: UploadFile = File(...)):
     try:
         contents = await file.read()
+
+        if not contents:
+            return JSONResponse(status_code=400, content={"error": "Uploaded file is empty"})
+
+        if not contents.startswith(b"%PDF"):
+            return JSONResponse(status_code=400, content={"error": "Not a valid PDF format"})
+
         pdf = fitz.open(stream=contents, filetype="pdf")
         total_pages = pdf.page_count
         full_text = ""
@@ -19,8 +20,11 @@ async def analyze_pdf(file: UploadFile = File(...)):
 
         return JSONResponse({
             "page_count": total_pages,
-            "text_snippet": full_text[:2000] + "...",  # preview only
+            "text_snippet": full_text[:2000] + "..."  # preview
         })
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+print(f"Received: {file.filename}, size: {len(contents)} bytes")
+print(f"First 4 bytes: {contents[:4]}")
