@@ -1,44 +1,45 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse
-import fitz  # PyMuPDF
+import pymupdf4llm
 
-app = FastAPI()  # ✅ define app first!
+app = FastAPI()
 
-@app.post("/analyze")
-async def analyze_pdf(file: UploadFile = File(...)):
+@app.post("/chunk")
+async def chunk_pdf(file: UploadFile = File(...)):
+    # Read the uploaded file content
+    contents = await file.read()
+
     try:
-        contents = await file.read()
+        # Save the uploaded PDF to memory or temporary path
+        with open("temp.pdf", "wb") as temp_file:
+            temp_file.write(contents)
 
-        if not contents:
-            return JSONResponse(status_code=400, content={"error": "Uploaded file is empty"})
+        # Chunk the PDF using pymupdf4llm
+        chunks = pymupdf4llm.to_markdown("temp.pdf", page_chunks=True)
 
-        if not contents.startswith(b"%PDF"):
-            return JSONResponse(status_code=400, content={"error": "Not a valid PDF format"})
+        # Group chunks into 40-page blocks
+        chunk_size = 40
+        final_chunks = []
 
-        pdf = fitz.open(stream=contents, filetype="pdf")
-        total_pages = pdf.page_count
-        full_text = ""
+        for i in range(0, len(chunks), chunk_size):
+            chunk_group = chunks[i:i + chunk_size]
+            merged_text = "\n\n".join([c["text"] for c in chunk_group])
 
-        for page_num in range(total_pages):
-            page = pdf.load_page(page_num)
+            final_chunks.append({
+                "chunk_id": f"chunk_{(i // chunk_size) + 1:03}",
+                "start_page": i + 1,
+                "end_page": i + len(chunk_group),
+                "text": merged_text.strip(),
+                "tokens_estimate": int(len(merged_text.split()) * 1.3)
+            })
 
-            # First try plain text extraction
-            text = page.get_text("text")
+        # Remove empty chunks
+        final_chunks = [chunk for chunk in final_chunks if chunk['text'].strip()]
 
-            # Fallback to blocks if empty
-            if not text.strip():
-                blocks = page.get_text("blocks")
-                if blocks:
-                    text = "\n".join([b[4] for b in blocks if isinstance(b, tuple) and len(b) > 4])
-
-            if not text.strip():
-                text = f"[NO TEXT FOUND ON PAGE {page_num + 1}]"
-
-            full_text += text + "\n\n---PAGE BREAK---\n\n"
-
-        return JSONResponse({
-            "page_count": total_pages,
-            "full_text": full_text
+        return JSONResponse(content={
+            "document_title": file.filename,
+            "total_chunks": len(final_chunks),
+            "chunks": final_chunks
         })
 
     except Exception as e:
