@@ -1,14 +1,16 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 import fitz  # PyMuPDF
-import io
 
 app = FastAPI()
 
 @app.post("/chunk")
-async def chunk_pdf(file: UploadFile = File(...)):
+async def chunk_pdf(request: Request):
     try:
-        contents = await file.read()
+        # Read raw binary body
+        contents = await request.body()
+
+        # Open the PDF directly from the binary stream
         doc = fitz.open(stream=contents, filetype="pdf")
         chunk_size = 40
         final_chunks = []
@@ -31,7 +33,7 @@ async def chunk_pdf(file: UploadFile = File(...)):
         final_chunks = [chunk for chunk in final_chunks if chunk['text']]
 
         return JSONResponse(content={
-            "document_title": file.filename,
+            "document_title": "uploaded_via_binary.pdf",
             "total_chunks": len(final_chunks),
             "chunks": final_chunks
         })
