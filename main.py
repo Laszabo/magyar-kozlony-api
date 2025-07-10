@@ -1,40 +1,42 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse
-import pymupdf4llm
+import fitz  # PyMuPDF
+import os
 
 app = FastAPI()
 
 @app.post("/chunk")
 async def chunk_pdf(file: UploadFile = File(...)):
-    # Read the uploaded file content
-    contents = await file.read()
-
     try:
-        # Save the uploaded PDF to memory or temporary path
-        with open("temp.pdf", "wb") as temp_file:
-            temp_file.write(contents)
+        # Save the uploaded PDF to a temporary file
+        temp_path = "temp.pdf"
+        with open(temp_path, "wb") as f:
+            f.write(await file.read())
 
-        # Chunk the PDF using pymupdf4llm
-        chunks = pymupdf4llm.to_markdown("temp.pdf", page_chunks=True)
-
-        # Group chunks into 40-page blocks
+        # Open the PDF using fitz (PyMuPDF)
+        doc = fitz.open(temp_path)
         chunk_size = 40
         final_chunks = []
 
-        for i in range(0, len(chunks), chunk_size):
-            chunk_group = chunks[i:i + chunk_size]
-            merged_text = "\n\n".join([c["text"] for c in chunk_group])
+        for i in range(0, len(doc), chunk_size):
+            merged_text = ""
+            for page in doc[i:i + chunk_size]:
+                merged_text += page.get_text()
 
             final_chunks.append({
                 "chunk_id": f"chunk_{(i // chunk_size) + 1:03}",
                 "start_page": i + 1,
-                "end_page": i + len(chunk_group),
+                "end_page": min(i + chunk_size, len(doc)),
                 "text": merged_text.strip(),
                 "tokens_estimate": int(len(merged_text.split()) * 1.3)
             })
 
-        # Remove empty chunks
-        final_chunks = [chunk for chunk in final_chunks if chunk['text'].strip()]
+        # Clean up
+        doc.close()
+        os.remove(temp_path)
+
+        # Filter out empty chunks
+        final_chunks = [chunk for chunk in final_chunks if chunk['text']]
 
         return JSONResponse(content={
             "document_title": file.filename,
