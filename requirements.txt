@@ -1,7 +1,6 @@
 fastapi
 uvicorn
 requests
-os
 python-multipart
 PyMuPDF==1.23.22
 
