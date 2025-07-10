@@ -1,20 +1,15 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse
 import fitz  # PyMuPDF
-import os
+import io
 
 app = FastAPI()
 
 @app.post("/chunk")
 async def chunk_pdf(file: UploadFile = File(...)):
     try:
-        # Save the uploaded PDF to a temporary file
-        temp_path = "temp.pdf"
-        with open(temp_path, "wb") as f:
-            f.write(await file.read())
-
-        # Open the PDF using fitz (PyMuPDF)
-        doc = fitz.open(temp_path)
+        contents = await file.read()
+        doc = fitz.open(stream=contents, filetype="pdf")
         chunk_size = 40
         final_chunks = []
 
@@ -31,11 +26,8 @@ async def chunk_pdf(file: UploadFile = File(...)):
                 "tokens_estimate": int(len(merged_text.split()) * 1.3)
             })
 
-        # Clean up
         doc.close()
-        os.remove(temp_path)
 
-        # Filter out empty chunks
         final_chunks = [chunk for chunk in final_chunks if chunk['text']]
 
         return JSONResponse(content={
