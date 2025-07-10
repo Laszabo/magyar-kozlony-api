@@ -1,7 +1,7 @@
 fastapi
 uvicorn
 requests
-pymupdf4llm
+os
 python-multipart
-PyMuPDF==1.22.5
+PyMuPDF==1.23.22
 
